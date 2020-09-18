@@ -1,5 +1,6 @@
 package com.cursotdd.libraryapi.service;
 
+import com.cursotdd.libraryapi.exception.BusinessException;
 import com.cursotdd.libraryapi.model.entity.Book;
 import com.cursotdd.libraryapi.model.repository.BookRepository;
 import com.cursotdd.libraryapi.service.impl.BookServiceImpl;
@@ -31,13 +32,13 @@ public class BookServiceTest {
     @DisplayName("Deve salvar um livro.")
     public void saveBookTest() {    
         // cenario
-        Book book = Book.builder().isbn("123").author("Fulano").title("As Aventuras").build();
+        final Book book = createValidBook();
         // ? Estamos simulando um ambiente de teste com o mockito.when, aonde dizemos que quando o método save do repository for executado recebendo um instância de book, o mesmo deve retorna um book com um id populado (Nós simulamos tudo isso!!!)
-        
+        Mockito.when(repository.existsByIsbn(Mockito.anyString())).thenReturn(false);
         Mockito.when( repository.save(book) ).thenReturn(Book.builder().id(1l).isbn("123").author("Fulano").title("As aventuras").build());
 
         // execução
-        Book savedBook = service.save(book);
+        final Book savedBook = service.save(book);
         
         // verificação
         Assertions.assertNotNull(savedBook.getId());
@@ -47,4 +48,24 @@ public class BookServiceTest {
 
     }
 
+    @Test
+    @DisplayName("Deve lançar erro de negocio ao tentar salvar um livro com isbn duplicado")
+    public void shouldNotSaveBookWithDuplicatedISBN() {
+        final Book book = createValidBook();
+        // * Quando o existsByIsbn for executado durante esse meu teste, passando qualquer string, deve retorna true
+        Mockito.when(repository.existsByIsbn(Mockito.anyString())).thenReturn(true);
+
+        // ? Execução
+       Throwable exeception = org.assertj.core.api.Assertions.catchThrowable(() -> service.save(book));
+       // ? Verificações
+       org.assertj.core.api.Assertions.assertThat(exeception)
+       .isInstanceOf(BusinessException.class)
+       .hasMessage("Isbn já cadastrado.");
+       Mockito.verify(repository, Mockito.never()).save(book);
+    }
+
+
+    public Book createValidBook() {
+        return Book.builder().isbn("123").author("Fulano").title("As Aventuras").build();
+    }
 }
